@@ -8,9 +8,10 @@
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="MD to PDF">
+  <link rel="apple-touch-icon" href="icon-192.png">
   <title>Markdown to PDF</title>
-  <link rel="manifest" href="data:application/json;base64,eyJuYW1lIjoiTWFya2Rvd24gdG8gUERGIENvbnZlcnRlciIsInNob3J0X25hbWUiOiJNRCB0byBQREYiLCJkZXNjcmlwdGlvbiI6IkNvbnZlcnQgTWFya2Rvd24gdG8gUERGIGluc3RhbnRseSIsInN0YXJ0X3VybCI6Ii8iLCJkaXNwbGF5Ijoic3RhbmRhbG9uZSIsImJhY2tncm91bmRfY29sb3IiOiIjMGYxNzJhIiwidGhlbWVfY29sb3IiOiIjNjM2NmYxIiwiaWNvbnMiOlt7InNyYyI6ImRhdGE6aW1hZ2Uvc3ZnK3htbCw8c3ZnIHhtbG5zPSdodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2Zycgdmlld0JveD0nMCAwIDEwMCAxMDAnPjxyZWN0IHdpZHRoPScxMDAnIGhlaWdodD0nMTAwJyByeD0nMjAnIGZpbGw9JyM2MzY2ZjEnLz48dGV4dCB4PSc1MCcgeT0nNjUnIGZvbnQtc2l6ZT0nNDAnIHRleHQtYW5jaG9yPSdtaWRkbGUnIGZpbGw9J3doaXRlJyBmb250LWZhbWlseT0nc3lzdGVtLXVpJz5NRDwvdGV4dD48L3N2Zz4iLCJzaXplcyI6IjUxMng1MTIiLCJ0eXBlIjoiaW1hZ2Uvc3ZnK3htbCIsInB1cnBvc2UiOiJhbnkgbWFza2FibGUifV19">
-  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='20' fill='%236366f1'/><text x='50' y='65' font-size='40' text-anchor='middle' fill='white' font-family='system-ui'>MD</text></svg>">
+  <link rel="manifest" href="manifest.json">
+  <link rel="icon" type="image/png" href="icon-192.png">
   <script src="https://cdnjs.cloudflare.com/ajax/libs/marked/9.1.6/marked.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
   <style>
@@ -324,10 +325,10 @@ This is a paragraph with **bold** and *italic* text.
 
 > This is a blockquote
 
-\`\`\`javascript
+```javascript
 const greeting = 'Hello, World!';
 console.log(greeting);
-\`\`\`
+```
 
 | Column 1 | Column 2 |
 |----------|----------|
@@ -399,26 +400,9 @@ console.log(greeting);
     
     // Service Worker Registration
     if ('serviceWorker' in navigator) {
-      const swCode = `
-        const CACHE_NAME = 'md-to-pdf-v1';
-        const urlsToCache = ['/'];
-        
-        self.addEventListener('install', e => {
-          e.waitUntil(caches.open(CACHE_NAME).then(cache => cache.addAll(urlsToCache)));
-          self.skipWaiting();
-        });
-        
-        self.addEventListener('fetch', e => {
-          e.respondWith(
-            caches.match(e.request).then(response => response || fetch(e.request))
-          );
-        });
-      `;
-      
-      const blob = new Blob([swCode], { type: 'application/javascript' });
-      const swUrl = URL.createObjectURL(blob);
-      
-      navigator.serviceWorker.register(swUrl).catch(() => {});
+      navigator.serviceWorker.register('./sw.js')
+        .then((reg) => console.log('Service Worker registered', reg.scope))
+        .catch((err) => console.log('Service Worker registration failed', err));
     }
     
     // Configure marked
