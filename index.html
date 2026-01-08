@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="theme-color" content="#6366f1">
   <meta name="description" content="Convert Markdown to PDF">
-  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="MD to PDF">
   <link rel="apple-touch-icon" href="icon-192.png">
@@ -293,13 +293,47 @@
       transform: translateX(-50%) translateY(0);
       opacity: 1;
     }
+    
+    .drop-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(99, 102, 241, 0.9);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 999;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.2s;
+    }
+    
+    .drop-overlay.active {
+      opacity: 1;
+      pointer-events: auto;
+    }
+    
+    .drop-message {
+      text-align: center;
+      color: white;
+    }
+    
+    .drop-message svg {
+      width: 80px;
+      height: 80px;
+      margin-bottom: 20px;
+    }
+    
+    .drop-message p {
+      font-size: 1.5rem;
+      font-weight: 600;
+    }
   </style>
 </head>
 <body>
   <div class="container">
     <header>
       <h1>📄 Markdown to PDF</h1>
-      <p class="subtitle">Paste your markdown and download as a beautifully formatted PDF</p>
+      <p class="subtitle">Paste or drag & drop your markdown, then download as PDF</p>
     </header>
     
     <div class="install-banner" id="installBanner">
@@ -363,6 +397,13 @@ console.log(greeting);
   </div>
   
   <div class="toast" id="toast">PDF downloaded successfully!</div>
+  
+  <div class="drop-overlay" id="dropOverlay">
+    <div class="drop-message">
+      <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/></svg>
+      <p>Drop your Markdown file here</p>
+    </div>
+  </div>
 
   <script>
     const markdownInput = document.getElementById('markdown');
@@ -373,8 +414,47 @@ console.log(greeting);
     const toast = document.getElementById('toast');
     const installBanner = document.getElementById('installBanner');
     const installBtn = document.getElementById('installBtn');
+    const dropOverlay = document.getElementById('dropOverlay');
     
     let deferredPrompt;
+    let dragCounter = 0;
+    
+    // Drag and drop handling
+    document.addEventListener('dragenter', (e) => {
+      e.preventDefault();
+      dragCounter++;
+      if (e.dataTransfer.types.includes('Files')) {
+        dropOverlay.classList.add('active');
+      }
+    });
+    
+    document.addEventListener('dragleave', (e) => {
+      e.preventDefault();
+      dragCounter--;
+      if (dragCounter === 0) {
+        dropOverlay.classList.remove('active');
+      }
+    });
+    
+    document.addEventListener('dragover', (e) => {
+      e.preventDefault();
+    });
+    
+    document.addEventListener('drop', async (e) => {
+      e.preventDefault();
+      dragCounter = 0;
+      dropOverlay.classList.remove('active');
+      
+      const file = e.dataTransfer.files[0];
+      if (file && (file.name.endsWith('.md') || file.name.endsWith('.markdown') || file.name.endsWith('.txt') || file.type === 'text/plain' || file.type === 'text/markdown')) {
+        const text = await file.text();
+        markdownInput.value = text;
+        updatePreview();
+        showToast(`Opened: ${file.name}`);
+      } else if (file) {
+        showToast('Please drop a Markdown (.md) file');
+      }
+    });
     
     // PWA Install handling
     window.addEventListener('beforeinstallprompt', (e) => {
