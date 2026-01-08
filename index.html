@@ -1,0 +1,521 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#6366f1">
+  <meta name="description" content="Convert Markdown to PDF">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="MD to PDF">
+  <title>Markdown to PDF</title>
+  <link rel="manifest" href="data:application/json;base64,eyJuYW1lIjoiTWFya2Rvd24gdG8gUERGIENvbnZlcnRlciIsInNob3J0X25hbWUiOiJNRCB0byBQREYiLCJkZXNjcmlwdGlvbiI6IkNvbnZlcnQgTWFya2Rvd24gdG8gUERGIGluc3RhbnRseSIsInN0YXJ0X3VybCI6Ii8iLCJkaXNwbGF5Ijoic3RhbmRhbG9uZSIsImJhY2tncm91bmRfY29sb3IiOiIjMGYxNzJhIiwidGhlbWVfY29sb3IiOiIjNjM2NmYxIiwiaWNvbnMiOlt7InNyYyI6ImRhdGE6aW1hZ2Uvc3ZnK3htbCw8c3ZnIHhtbG5zPSdodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2Zycgdmlld0JveD0nMCAwIDEwMCAxMDAnPjxyZWN0IHdpZHRoPScxMDAnIGhlaWdodD0nMTAwJyByeD0nMjAnIGZpbGw9JyM2MzY2ZjEnLz48dGV4dCB4PSc1MCcgeT0nNjUnIGZvbnQtc2l6ZT0nNDAnIHRleHQtYW5jaG9yPSdtaWRkbGUnIGZpbGw9J3doaXRlJyBmb250LWZhbWlseT0nc3lzdGVtLXVpJz5NRDwvdGV4dD48L3N2Zz4iLCJzaXplcyI6IjUxMng1MTIiLCJ0eXBlIjoiaW1hZ2Uvc3ZnK3htbCIsInB1cnBvc2UiOiJhbnkgbWFza2FibGUifV19">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='20' fill='%236366f1'/><text x='50' y='65' font-size='40' text-anchor='middle' fill='white' font-family='system-ui'>MD</text></svg>">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/marked/9.1.6/marked.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    
+    body {
+      font-family: system-ui, -apple-system, sans-serif;
+      background: linear-gradient(135deg, #0f172a 0%, #1e1b4b 100%);
+      min-height: 100vh;
+      color: #e2e8f0;
+    }
+    
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 20px;
+    }
+    
+    header {
+      text-align: center;
+      padding: 30px 0;
+    }
+    
+    h1 {
+      font-size: 2.5rem;
+      background: linear-gradient(135deg, #818cf8, #c084fc);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      margin-bottom: 8px;
+    }
+    
+    .subtitle {
+      color: #94a3b8;
+      font-size: 1.1rem;
+    }
+    
+    .install-banner {
+      background: rgba(99, 102, 241, 0.2);
+      border: 1px solid rgba(99, 102, 241, 0.4);
+      border-radius: 12px;
+      padding: 12px 20px;
+      margin-bottom: 20px;
+      display: none;
+      align-items: center;
+      justify-content: space-between;
+      gap: 15px;
+    }
+    
+    .install-banner.show { display: flex; }
+    
+    .install-btn {
+      background: #6366f1;
+      color: white;
+      border: none;
+      padding: 8px 20px;
+      border-radius: 8px;
+      cursor: pointer;
+      font-weight: 600;
+      white-space: nowrap;
+      transition: all 0.2s;
+    }
+    
+    .install-btn:hover { background: #4f46e5; transform: scale(1.02); }
+    
+    .main-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 20px;
+      margin-bottom: 20px;
+    }
+    
+    @media (max-width: 768px) {
+      .main-grid { grid-template-columns: 1fr; }
+      h1 { font-size: 1.8rem; }
+    }
+    
+    .panel {
+      background: rgba(30, 41, 59, 0.8);
+      border: 1px solid rgba(148, 163, 184, 0.2);
+      border-radius: 16px;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+    
+    .panel-header {
+      background: rgba(51, 65, 85, 0.5);
+      padding: 12px 20px;
+      font-weight: 600;
+      color: #cbd5e1;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    
+    .panel-header svg { width: 20px; height: 20px; }
+    
+    textarea {
+      flex: 1;
+      min-height: 400px;
+      background: transparent;
+      border: none;
+      padding: 20px;
+      color: #e2e8f0;
+      font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+      font-size: 14px;
+      line-height: 1.6;
+      resize: none;
+      outline: none;
+    }
+    
+    textarea::placeholder { color: #64748b; }
+    
+    .preview {
+      flex: 1;
+      min-height: 400px;
+      padding: 20px;
+      overflow-y: auto;
+      background: white;
+      color: #1e293b;
+    }
+    
+    .preview h1, .preview h2, .preview h3, .preview h4 {
+      color: #0f172a;
+      margin: 1em 0 0.5em;
+      line-height: 1.3;
+    }
+    
+    .preview h1 { font-size: 2em; border-bottom: 2px solid #e2e8f0; padding-bottom: 0.3em; }
+    .preview h2 { font-size: 1.5em; border-bottom: 1px solid #e2e8f0; padding-bottom: 0.3em; }
+    .preview h3 { font-size: 1.25em; }
+    
+    .preview p { margin: 1em 0; line-height: 1.7; }
+    .preview ul, .preview ol { margin: 1em 0; padding-left: 2em; }
+    .preview li { margin: 0.5em 0; }
+    
+    .preview code {
+      background: #f1f5f9;
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-family: 'Monaco', 'Menlo', monospace;
+      font-size: 0.9em;
+    }
+    
+    .preview pre {
+      background: #1e293b;
+      color: #e2e8f0;
+      padding: 16px;
+      border-radius: 8px;
+      overflow-x: auto;
+      margin: 1em 0;
+    }
+    
+    .preview pre code {
+      background: transparent;
+      padding: 0;
+      color: inherit;
+    }
+    
+    .preview blockquote {
+      border-left: 4px solid #6366f1;
+      margin: 1em 0;
+      padding: 0.5em 1em;
+      background: #f8fafc;
+      color: #475569;
+    }
+    
+    .preview table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 1em 0;
+    }
+    
+    .preview th, .preview td {
+      border: 1px solid #e2e8f0;
+      padding: 10px 12px;
+      text-align: left;
+    }
+    
+    .preview th { background: #f1f5f9; font-weight: 600; }
+    .preview a { color: #6366f1; }
+    .preview hr { border: none; border-top: 2px solid #e2e8f0; margin: 2em 0; }
+    
+    .actions {
+      display: flex;
+      gap: 12px;
+      justify-content: center;
+      flex-wrap: wrap;
+    }
+    
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 14px 28px;
+      border-radius: 12px;
+      font-size: 1rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+      border: none;
+    }
+    
+    .btn-primary {
+      background: linear-gradient(135deg, #6366f1, #8b5cf6);
+      color: white;
+      box-shadow: 0 4px 15px rgba(99, 102, 241, 0.4);
+    }
+    
+    .btn-primary:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 20px rgba(99, 102, 241, 0.5);
+    }
+    
+    .btn-primary:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+      transform: none;
+    }
+    
+    .btn-secondary {
+      background: rgba(51, 65, 85, 0.8);
+      color: #e2e8f0;
+      border: 1px solid rgba(148, 163, 184, 0.3);
+    }
+    
+    .btn-secondary:hover {
+      background: rgba(71, 85, 105, 0.8);
+    }
+    
+    .btn svg { width: 20px; height: 20px; }
+    
+    .empty-state {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 100%;
+      color: #94a3b8;
+      text-align: center;
+      padding: 40px;
+    }
+    
+    .empty-state svg {
+      width: 64px;
+      height: 64px;
+      margin-bottom: 16px;
+      opacity: 0.5;
+    }
+    
+    .spinner {
+      width: 20px;
+      height: 20px;
+      border: 2px solid rgba(255,255,255,0.3);
+      border-top-color: white;
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+    
+    @keyframes spin { to { transform: rotate(360deg); } }
+    
+    .toast {
+      position: fixed;
+      bottom: 30px;
+      left: 50%;
+      transform: translateX(-50%) translateY(100px);
+      background: #10b981;
+      color: white;
+      padding: 14px 28px;
+      border-radius: 12px;
+      font-weight: 600;
+      opacity: 0;
+      transition: all 0.3s;
+      z-index: 1000;
+    }
+    
+    .toast.show {
+      transform: translateX(-50%) translateY(0);
+      opacity: 1;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>📄 Markdown to PDF</h1>
+      <p class="subtitle">Paste your markdown and download as a beautifully formatted PDF</p>
+    </header>
+    
+    <div class="install-banner" id="installBanner">
+      <span>📲 Install this app for quick offline access!</span>
+      <button class="install-btn" id="installBtn">Install App</button>
+    </div>
+    
+    <div class="main-grid">
+      <div class="panel">
+        <div class="panel-header">
+          <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
+          Markdown Input
+        </div>
+        <textarea id="markdown" placeholder="# Paste your markdown here...
+
+## Example Content
+
+This is a paragraph with **bold** and *italic* text.
+
+- List item one
+- List item two
+- List item three
+
+> This is a blockquote
+
+\`\`\`javascript
+const greeting = 'Hello, World!';
+console.log(greeting);
+\`\`\`
+
+| Column 1 | Column 2 |
+|----------|----------|
+| Data A   | Data B   |
+"></textarea>
+      </div>
+      
+      <div class="panel">
+        <div class="panel-header">
+          <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
+          Live Preview
+        </div>
+        <div class="preview" id="preview">
+          <div class="empty-state">
+            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+            <p>Your preview will appear here</p>
+          </div>
+        </div>
+      </div>
+    </div>
+    
+    <div class="actions">
+      <button class="btn btn-secondary" id="clearBtn">
+        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+        Clear
+      </button>
+      <button class="btn btn-primary" id="downloadBtn" disabled>
+        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+        <span id="btnText">Download PDF</span>
+      </button>
+    </div>
+  </div>
+  
+  <div class="toast" id="toast">PDF downloaded successfully!</div>
+
+  <script>
+    const markdownInput = document.getElementById('markdown');
+    const preview = document.getElementById('preview');
+    const downloadBtn = document.getElementById('downloadBtn');
+    const clearBtn = document.getElementById('clearBtn');
+    const btnText = document.getElementById('btnText');
+    const toast = document.getElementById('toast');
+    const installBanner = document.getElementById('installBanner');
+    const installBtn = document.getElementById('installBtn');
+    
+    let deferredPrompt;
+    
+    // PWA Install handling
+    window.addEventListener('beforeinstallprompt', (e) => {
+      e.preventDefault();
+      deferredPrompt = e;
+      installBanner.classList.add('show');
+    });
+    
+    installBtn.addEventListener('click', async () => {
+      if (!deferredPrompt) return;
+      deferredPrompt.prompt();
+      const { outcome } = await deferredPrompt.userChoice;
+      if (outcome === 'accepted') {
+        installBanner.classList.remove('show');
+      }
+      deferredPrompt = null;
+    });
+    
+    window.addEventListener('appinstalled', () => {
+      installBanner.classList.remove('show');
+      showToast('App installed successfully!');
+    });
+    
+    // Service Worker Registration
+    if ('serviceWorker' in navigator) {
+      const swCode = `
+        const CACHE_NAME = 'md-to-pdf-v1';
+        const urlsToCache = ['/'];
+        
+        self.addEventListener('install', e => {
+          e.waitUntil(caches.open(CACHE_NAME).then(cache => cache.addAll(urlsToCache)));
+          self.skipWaiting();
+        });
+        
+        self.addEventListener('fetch', e => {
+          e.respondWith(
+            caches.match(e.request).then(response => response || fetch(e.request))
+          );
+        });
+      `;
+      
+      const blob = new Blob([swCode], { type: 'application/javascript' });
+      const swUrl = URL.createObjectURL(blob);
+      
+      navigator.serviceWorker.register(swUrl).catch(() => {});
+    }
+    
+    // Configure marked
+    marked.setOptions({
+      breaks: true,
+      gfm: true,
+      headerIds: false,
+      mangle: false
+    });
+    
+    // Update preview
+    function updatePreview() {
+      const md = markdownInput.value.trim();
+      
+      if (!md) {
+        preview.innerHTML = `
+          <div class="empty-state">
+            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+            <p>Your preview will appear here</p>
+          </div>
+        `;
+        downloadBtn.disabled = true;
+        return;
+      }
+      
+      preview.innerHTML = marked.parse(md);
+      downloadBtn.disabled = false;
+    }
+    
+    // Debounce function
+    function debounce(fn, delay) {
+      let timeout;
+      return (...args) => {
+        clearTimeout(timeout);
+        timeout = setTimeout(() => fn(...args), delay);
+      };
+    }
+    
+    markdownInput.addEventListener('input', debounce(updatePreview, 150));
+    
+    // Clear button
+    clearBtn.addEventListener('click', () => {
+      markdownInput.value = '';
+      updatePreview();
+    });
+    
+    // Show toast
+    function showToast(message) {
+      toast.textContent = message;
+      toast.classList.add('show');
+      setTimeout(() => toast.classList.remove('show'), 3000);
+    }
+    
+    // Download PDF
+    downloadBtn.addEventListener('click', async () => {
+      if (!markdownInput.value.trim()) return;
+      
+      const originalText = btnText.textContent;
+      btnText.innerHTML = '<div class="spinner"></div>';
+      downloadBtn.disabled = true;
+      
+      const element = preview.cloneNode(true);
+      element.style.padding = '40px';
+      element.style.maxWidth = '800px';
+      element.style.margin = '0 auto';
+      
+      const opt = {
+        margin: [15, 15, 15, 15],
+        filename: 'document.pdf',
+        image: { type: 'jpeg', quality: 0.98 },
+        html2canvas: { 
+          scale: 2,
+          useCORS: true,
+          letterRendering: true
+        },
+        jsPDF: { 
+          unit: 'mm', 
+          format: 'a4', 
+          orientation: 'portrait' 
+        },
+        pagebreak: { mode: 'avoid-all' }
+      };
+      
+      try {
+        await html2pdf().set(opt).from(element).save();
+        showToast('PDF downloaded successfully!');
+      } catch (err) {
+        showToast('Error generating PDF');
+        console.error(err);
+      } finally {
+        btnText.textContent = originalText;
+        downloadBtn.disabled = false;
+      }
+    });
+    
+    // Initialize
+    updatePreview();
+  </script>
+</body>
+</html>
