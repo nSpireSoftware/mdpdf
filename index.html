@@ -327,6 +327,38 @@
       font-size: 1.5rem;
       font-weight: 600;
     }
+    
+    .update-banner {
+      position: fixed;
+      top: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: linear-gradient(135deg, #10b981, #059669);
+      color: white;
+      padding: 12px 20px;
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      gap: 15px;
+      box-shadow: 0 10px 40px rgba(16, 185, 129, 0.4);
+      z-index: 1001;
+      font-weight: 500;
+    }
+    
+    .update-banner button {
+      background: white;
+      color: #059669;
+      border: none;
+      padding: 8px 16px;
+      border-radius: 6px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    
+    .update-banner button.dismiss {
+      background: rgba(255,255,255,0.2);
+      color: white;
+    }
   </style>
 </head>
 <body>
@@ -389,6 +421,10 @@ console.log(greeting);
         <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
         Clear
       </button>
+      <button class="btn btn-secondary" id="copyHtmlBtn" disabled>
+        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>
+        Copy HTML
+      </button>
       <button class="btn btn-primary" id="downloadBtn" disabled>
         <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
         <span id="btnText">Download PDF</span>
@@ -409,6 +445,7 @@ console.log(greeting);
     const markdownInput = document.getElementById('markdown');
     const preview = document.getElementById('preview');
     const downloadBtn = document.getElementById('downloadBtn');
+    const copyHtmlBtn = document.getElementById('copyHtmlBtn');
     const clearBtn = document.getElementById('clearBtn');
     const btnText = document.getElementById('btnText');
     const toast = document.getElementById('toast');
@@ -418,23 +455,6 @@ console.log(greeting);
     
     let deferredPrompt;
     let dragCounter = 0;
-
-    // Update notification
-    if ('serviceWorker' in navigator) {
-      navigator.serviceWorker.register('./sw.js').then((reg) => {
-        reg.onupdatefound = () => {
-          const newWorker = reg.installing;
-          newWorker.onstatechange = () => {
-            if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
-              // New version available
-              if (confirm('Update available! Reload to get the latest version?')) {
-                window.location.reload();
-              }
-            }
-          };
-        };
-      });
-    }
     
     // Drag and drop handling
     document.addEventListener('dragenter', (e) => {
@@ -495,11 +515,33 @@ console.log(greeting);
       showToast('App installed successfully!');
     });
     
-    // Service Worker Registration
+    // Service Worker Registration with update prompt
     if ('serviceWorker' in navigator) {
       navigator.serviceWorker.register('./sw.js')
-        .then((reg) => console.log('Service Worker registered', reg.scope))
+        .then((reg) => {
+          console.log('Service Worker registered', reg.scope);
+          
+          reg.onupdatefound = () => {
+            const newWorker = reg.installing;
+            newWorker.onstatechange = () => {
+              if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+                showUpdatePrompt();
+              }
+            };
+          };
+        })
         .catch((err) => console.log('Service Worker registration failed', err));
+    }
+    
+    function showUpdatePrompt() {
+      const banner = document.createElement('div');
+      banner.className = 'update-banner';
+      banner.innerHTML = `
+        <span>🎉 A new version is available!</span>
+        <button onclick="window.location.reload()">Update now</button>
+        <button class="dismiss" onclick="this.parentElement.remove()">Later</button>
+      `;
+      document.body.appendChild(banner);
     }
     
     // Configure marked
@@ -522,11 +564,13 @@ console.log(greeting);
           </div>
         `;
         downloadBtn.disabled = true;
+        copyHtmlBtn.disabled = true;
         return;
       }
       
       preview.innerHTML = marked.parse(md);
       downloadBtn.disabled = false;
+      copyHtmlBtn.disabled = false;
     }
     
     // Debounce function
@@ -544,6 +588,25 @@ console.log(greeting);
     clearBtn.addEventListener('click', () => {
       markdownInput.value = '';
       updatePreview();
+    });
+    
+    // Copy HTML button
+    copyHtmlBtn.addEventListener('click', async () => {
+      if (!markdownInput.value.trim()) return;
+      
+      try {
+        await navigator.clipboard.writeText(preview.innerHTML);
+        showToast('HTML copied to clipboard!');
+      } catch (err) {
+        // Fallback for older browsers
+        const textarea = document.createElement('textarea');
+        textarea.value = preview.innerHTML;
+        document.body.appendChild(textarea);
+        textarea.select();
+        document.execCommand('copy');
+        document.body.removeChild(textarea);
+        showToast('HTML copied to clipboard!');
+      }
     });
     
     // Show toast
