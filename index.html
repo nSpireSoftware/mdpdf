@@ -498,6 +498,19 @@ console.log(greeting);
       }
     });
     
+    // Handle files opened with the PWA (File Handling API)
+    if ('launchQueue' in window) {
+      launchQueue.setConsumer(async (launchParams) => {
+        if (launchParams.files && launchParams.files.length > 0) {
+          const file = await launchParams.files[0].getFile();
+          const text = await file.text();
+          markdownInput.value = text;
+          updatePreview();
+          showToast(`Opened: ${file.name}`);
+        }
+      });
+    }
+    
     // Initialize
     updatePreview();
   </script>

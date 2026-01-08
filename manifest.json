@@ -21,5 +21,13 @@
       "type": "image/png",
       "purpose": "any maskable"
     }
+  ],
+  "file_handlers": [
+    {
+      "action": "./",
+      "accept": {
+        "text/markdown": [".md", ".markdown", ".mdown", ".mkd"]
+      }
+    }
   ]
 }
