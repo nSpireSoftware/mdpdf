@@ -595,17 +595,25 @@ console.log(greeting);
       if (!markdownInput.value.trim()) return;
       
       try {
-        await navigator.clipboard.writeText(preview.innerHTML);
+        const html = preview.innerHTML;
+        const blob = new Blob([html], { type: 'text/html' });
+        const plainBlob = new Blob([html], { type: 'text/plain' });
+        
+        await navigator.clipboard.write([
+          new ClipboardItem({
+            'text/html': blob,
+            'text/plain': plainBlob
+          })
+        ]);
         showToast('HTML copied to clipboard!');
       } catch (err) {
-        // Fallback for older browsers
-        const textarea = document.createElement('textarea');
-        textarea.value = preview.innerHTML;
-        document.body.appendChild(textarea);
-        textarea.select();
-        document.execCommand('copy');
-        document.body.removeChild(textarea);
-        showToast('HTML copied to clipboard!');
+        // Fallback: copy as plain text
+        try {
+          await navigator.clipboard.writeText(preview.innerHTML);
+          showToast('Copied as plain text (rich text not supported)');
+        } catch (e) {
+          showToast('Failed to copy');
+        }
       }
     });
     
