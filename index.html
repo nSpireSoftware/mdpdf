@@ -232,11 +232,15 @@
       border-radius: 8px;
       margin: 1em 0;
       text-align: center;
+      overflow: hidden;
     }
     
     .preview .mermaid svg {
-      max-width: 100%;
-      height: auto;
+      max-width: 100% !important;
+      height: auto !important;
+      width: auto !important;
+      display: block;
+      margin: 0 auto;
     }
     
     /* KaTeX math styling */
@@ -513,7 +517,17 @@ $$
       startOnLoad: false,
       theme: 'default',
       securityLevel: 'loose',
-      fontFamily: 'system-ui, sans-serif'
+      fontFamily: 'system-ui, sans-serif',
+      flowchart: {
+        useMaxWidth: true,
+        htmlLabels: true
+      },
+      sequence: {
+        useMaxWidth: true
+      },
+      gantt: {
+        useMaxWidth: true
+      }
     });
     
     const markdownInput = document.getElementById('markdown');
@@ -623,21 +637,23 @@ $$
     const renderer = new marked.Renderer();
     const originalCodeRenderer = renderer.code.bind(renderer);
     
-    renderer.code = function(code, language) {
+    renderer.code = function(token) {
+      // marked 9.x passes a token object with text and lang properties
+      const code = token.text || token;
+      const language = token.lang || '';
+      
       if (language === 'mermaid') {
         mermaidId++;
         return `<div class="mermaid" id="mermaid-${mermaidId}">${code}</div>`;
       }
-      return originalCodeRenderer(code, language);
+      return originalCodeRenderer(token);
     };
     
     // Configure marked
     marked.setOptions({
       renderer: renderer,
       breaks: true,
-      gfm: true,
-      headerIds: false,
-      mangle: false
+      gfm: true
     });
     
     // Render mermaid diagrams
@@ -763,9 +779,29 @@ $$
       // Clone and prepare for PDF
       const element = preview.cloneNode(true);
       element.style.padding = '40px';
-      element.style.maxWidth = '800px';
+      element.style.maxWidth = '700px';
       element.style.margin = '0 auto';
       element.style.background = 'white';
+      
+      // Fix SVG sizing for PDF export
+      const svgs = element.querySelectorAll('.mermaid svg');
+      svgs.forEach(svg => {
+        // Get the viewBox dimensions or use current dimensions
+        const viewBox = svg.getAttribute('viewBox');
+        if (viewBox) {
+          const [, , vbWidth, vbHeight] = viewBox.split(' ').map(Number);
+          const maxWidth = 620; // max width in pixels for A4 with margins
+          if (vbWidth > maxWidth) {
+            const scale = maxWidth / vbWidth;
+            svg.style.width = maxWidth + 'px';
+            svg.style.height = (vbHeight * scale) + 'px';
+          } else {
+            svg.style.width = vbWidth + 'px';
+            svg.style.height = vbHeight + 'px';
+          }
+        }
+        svg.style.maxWidth = '100%';
+      });
       
       const opt = {
         margin: [15, 15, 15, 15],
@@ -775,7 +811,9 @@ $$
           scale: 2,
           useCORS: true,
           letterRendering: true,
-          logging: false
+          logging: false,
+          width: 700,
+          windowWidth: 700
         },
         jsPDF: { 
           unit: 'mm', 
