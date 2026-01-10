@@ -633,41 +633,36 @@ $$
       document.body.appendChild(banner);
     }
     
-    // Custom renderer for marked to handle mermaid code blocks
-    const renderer = new marked.Renderer();
-    const originalCodeRenderer = renderer.code.bind(renderer);
-    
-    renderer.code = function(token) {
-      // marked 9.x passes a token object with text and lang properties
-      const code = token.text || token;
-      const language = token.lang || '';
-      
-      if (language === 'mermaid') {
-        mermaidId++;
-        return `<div class="mermaid" id="mermaid-${mermaidId}">${code}</div>`;
-      }
-      return originalCodeRenderer(token);
-    };
-    
-    // Configure marked
+    // Configure marked (default settings)
     marked.setOptions({
-      renderer: renderer,
       breaks: true,
       gfm: true
     });
     
-    // Render mermaid diagrams
+    // Render mermaid diagrams (post-process)
     async function renderMermaid() {
-      const mermaidDivs = preview.querySelectorAll('.mermaid');
-      for (const div of mermaidDivs) {
-        const id = div.id;
-        const code = div.textContent;
+      // Find code blocks with language-mermaid class
+      const codeBlocks = preview.querySelectorAll('code.language-mermaid');
+      
+      for (const code of codeBlocks) {
+        const pre = code.parentElement;
+        const mermaidCode = code.textContent;
+        
+        // Create mermaid container
+        const div = document.createElement('div');
+        div.className = 'mermaid';
+        mermaidId++;
+        div.id = `mermaid-${mermaidId}`;
+        
         try {
-          const { svg } = await mermaid.render(id + '-svg', code);
+          const { svg } = await mermaid.render(`mermaid-${mermaidId}-svg`, mermaidCode);
           div.innerHTML = svg;
         } catch (err) {
           div.innerHTML = `<pre style="color: #ef4444; background: #fef2f2; padding: 10px; border-radius: 4px;">Mermaid Error: ${err.message}</pre>`;
         }
+        
+        // Replace the pre>code with the rendered diagram
+        pre.replaceWith(div);
       }
     }
     

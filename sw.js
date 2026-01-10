@@ -1,4 +1,4 @@
-const CACHE_NAME = 'md-to-pdf-v6';
+const CACHE_NAME = 'md-to-pdf-v7';
 const urlsToCache = [
   './',
   './index.html',
