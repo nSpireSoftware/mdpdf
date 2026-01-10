@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="theme-color" content="#6366f1">
-  <meta name="description" content="Convert Markdown to PDF">
+  <meta name="description" content="Convert Markdown to PDF with Mermaid diagrams and LaTeX math">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="MD to PDF">
@@ -12,8 +12,19 @@
   <title>Markdown to PDF</title>
   <link rel="manifest" href="manifest.json">
   <link rel="icon" type="image/png" href="icon-192.png">
+  
+  <!-- Core libraries -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/marked/9.1.6/marked.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+  
+  <!-- Mermaid for diagrams -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mermaid/10.6.1/mermaid.min.js"></script>
+  
+  <!-- KaTeX for math -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/contrib/auto-render.min.js"></script>
+  
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
     
@@ -47,6 +58,23 @@
     .subtitle {
       color: #94a3b8;
       font-size: 1.1rem;
+    }
+    
+    .features {
+      display: flex;
+      justify-content: center;
+      gap: 20px;
+      margin-top: 12px;
+      flex-wrap: wrap;
+    }
+    
+    .feature-badge {
+      background: rgba(99, 102, 241, 0.2);
+      border: 1px solid rgba(99, 102, 241, 0.3);
+      padding: 4px 12px;
+      border-radius: 20px;
+      font-size: 0.85rem;
+      color: #a5b4fc;
     }
     
     .install-banner {
@@ -87,6 +115,7 @@
     @media (max-width: 768px) {
       .main-grid { grid-template-columns: 1fr; }
       h1 { font-size: 1.8rem; }
+      .features { gap: 10px; }
     }
     
     .panel {
@@ -195,6 +224,31 @@
     .preview th { background: #f1f5f9; font-weight: 600; }
     .preview a { color: #6366f1; }
     .preview hr { border: none; border-top: 2px solid #e2e8f0; margin: 2em 0; }
+    
+    /* Mermaid diagram styling */
+    .preview .mermaid {
+      background: #f8fafc;
+      padding: 20px;
+      border-radius: 8px;
+      margin: 1em 0;
+      text-align: center;
+    }
+    
+    .preview .mermaid svg {
+      max-width: 100%;
+      height: auto;
+    }
+    
+    /* KaTeX math styling */
+    .preview .katex-display {
+      margin: 1em 0;
+      overflow-x: auto;
+      overflow-y: hidden;
+    }
+    
+    .preview .katex {
+      font-size: 1.1em;
+    }
     
     .actions {
       display: flex;
@@ -366,6 +420,11 @@
     <header>
       <h1>📄 Markdown to PDF</h1>
       <p class="subtitle">Paste or drag & drop your markdown, then download as PDF</p>
+      <div class="features">
+        <span class="feature-badge">📊 Mermaid Diagrams</span>
+        <span class="feature-badge">📐 LaTeX Math</span>
+        <span class="feature-badge">📱 Works Offline</span>
+      </div>
     </header>
     
     <div class="install-banner" id="installBanner">
@@ -381,24 +440,31 @@
         </div>
         <textarea id="markdown" placeholder="# Paste your markdown here...
 
-## Example Content
+## Mermaid Diagrams
 
-This is a paragraph with **bold** and *italic* text.
-
-- List item one
-- List item two
-- List item three
-
-> This is a blockquote
-
-```javascript
-const greeting = 'Hello, World!';
-console.log(greeting);
+```mermaid
+graph TD
+    A[Start] --> B{Decision}
+    B -->|Yes| C[Do something]
+    B -->|No| D[Do something else]
+    C --> E[End]
+    D --> E
 ```
 
-| Column 1 | Column 2 |
-|----------|----------|
-| Data A   | Data B   |
+## LaTeX Math
+
+Inline math: $E = mc^2$
+
+Block math:
+$$
+\int_{-\infty}^{\infty} e^{-x^2} dx = \sqrt{\pi}
+$$
+
+## Regular Markdown
+
+- **Bold** and *italic* text
+- Lists, tables, code blocks
+- All standard markdown features
 "></textarea>
       </div>
       
@@ -442,6 +508,14 @@ console.log(greeting);
   </div>
 
   <script>
+    // Initialize Mermaid
+    mermaid.initialize({
+      startOnLoad: false,
+      theme: 'default',
+      securityLevel: 'loose',
+      fontFamily: 'system-ui, sans-serif'
+    });
+    
     const markdownInput = document.getElementById('markdown');
     const preview = document.getElementById('preview');
     const downloadBtn = document.getElementById('downloadBtn');
@@ -455,6 +529,7 @@ console.log(greeting);
     
     let deferredPrompt;
     let dragCounter = 0;
+    let mermaidId = 0;
     
     // Drag and drop handling
     document.addEventListener('dragenter', (e) => {
@@ -544,16 +619,58 @@ console.log(greeting);
       document.body.appendChild(banner);
     }
     
+    // Custom renderer for marked to handle mermaid code blocks
+    const renderer = new marked.Renderer();
+    const originalCodeRenderer = renderer.code.bind(renderer);
+    
+    renderer.code = function(code, language) {
+      if (language === 'mermaid') {
+        mermaidId++;
+        return `<div class="mermaid" id="mermaid-${mermaidId}">${code}</div>`;
+      }
+      return originalCodeRenderer(code, language);
+    };
+    
     // Configure marked
     marked.setOptions({
+      renderer: renderer,
       breaks: true,
       gfm: true,
       headerIds: false,
       mangle: false
     });
     
+    // Render mermaid diagrams
+    async function renderMermaid() {
+      const mermaidDivs = preview.querySelectorAll('.mermaid');
+      for (const div of mermaidDivs) {
+        const id = div.id;
+        const code = div.textContent;
+        try {
+          const { svg } = await mermaid.render(id + '-svg', code);
+          div.innerHTML = svg;
+        } catch (err) {
+          div.innerHTML = `<pre style="color: #ef4444; background: #fef2f2; padding: 10px; border-radius: 4px;">Mermaid Error: ${err.message}</pre>`;
+        }
+      }
+    }
+    
+    // Render LaTeX math
+    function renderMath() {
+      renderMathInElement(preview, {
+        delimiters: [
+          { left: '$$', right: '$$', display: true },
+          { left: '$', right: '$', display: false },
+          { left: '\\[', right: '\\]', display: true },
+          { left: '\\(', right: '\\)', display: false }
+        ],
+        throwOnError: false,
+        errorColor: '#ef4444'
+      });
+    }
+    
     // Update preview
-    function updatePreview() {
+    async function updatePreview() {
       const md = markdownInput.value.trim();
       
       if (!md) {
@@ -568,7 +685,18 @@ console.log(greeting);
         return;
       }
       
+      // Reset mermaid ID counter for consistent rendering
+      mermaidId = 0;
+      
+      // Parse markdown
       preview.innerHTML = marked.parse(md);
+      
+      // Render mermaid diagrams
+      await renderMermaid();
+      
+      // Render math
+      renderMath();
+      
       downloadBtn.disabled = false;
       copyHtmlBtn.disabled = false;
     }
@@ -582,7 +710,7 @@ console.log(greeting);
       };
     }
     
-    markdownInput.addEventListener('input', debounce(updatePreview, 150));
+    markdownInput.addEventListener('input', debounce(updatePreview, 300));
     
     // Clear button
     clearBtn.addEventListener('click', () => {
@@ -632,10 +760,12 @@ console.log(greeting);
       btnText.innerHTML = '<div class="spinner"></div>';
       downloadBtn.disabled = true;
       
+      // Clone and prepare for PDF
       const element = preview.cloneNode(true);
       element.style.padding = '40px';
       element.style.maxWidth = '800px';
       element.style.margin = '0 auto';
+      element.style.background = 'white';
       
       const opt = {
         margin: [15, 15, 15, 15],
@@ -644,14 +774,15 @@ console.log(greeting);
         html2canvas: { 
           scale: 2,
           useCORS: true,
-          letterRendering: true
+          letterRendering: true,
+          logging: false
         },
         jsPDF: { 
           unit: 'mm', 
           format: 'a4', 
           orientation: 'portrait' 
         },
-        pagebreak: { mode: 'avoid-all' }
+        pagebreak: { mode: ['avoid-all', 'css', 'legacy'] }
       };
       
       try {

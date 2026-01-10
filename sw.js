@@ -1,12 +1,19 @@
-const CACHE_NAME = 'md-to-pdf-v4';
+const CACHE_NAME = 'md-to-pdf-v5';
 const urlsToCache = [
   './',
   './index.html',
   './manifest.json',
   './icon-192.png',
   './icon-512.png',
+  // Core libraries
   'https://cdnjs.cloudflare.com/ajax/libs/marked/9.1.6/marked.min.js',
-  'https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js'
+  'https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js',
+  // Mermaid
+  'https://cdnjs.cloudflare.com/ajax/libs/mermaid/10.6.1/mermaid.min.js',
+  // KaTeX
+  'https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.css',
+  'https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.js',
+  'https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/contrib/auto-render.min.js'
 ];
 
 // Install event - cache assets
@@ -42,14 +49,21 @@ self.addEventListener('fetch', (event) => {
           return response;
         }
         return fetch(event.request).then((response) => {
-          if (!response || response.status !== 200 || response.type !== 'basic') {
+          // Don't cache non-successful responses or non-GET requests
+          if (!response || response.status !== 200 || event.request.method !== 'GET') {
             return response;
           }
-          const responseToCache = response.clone();
-          caches.open(CACHE_NAME)
-            .then((cache) => {
-              cache.put(event.request, responseToCache);
-            });
+          
+          // Cache KaTeX fonts dynamically
+          const url = event.request.url;
+          if (url.includes('KaTeX') && (url.endsWith('.woff2') || url.endsWith('.woff'))) {
+            const responseToCache = response.clone();
+            caches.open(CACHE_NAME)
+              .then((cache) => {
+                cache.put(event.request, responseToCache);
+              });
+          }
+          
           return response;
         });
       })
