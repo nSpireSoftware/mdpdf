@@ -1,4 +1,4 @@
-const CACHE_NAME = 'md-to-pdf-v7';
+const CACHE_NAME = 'md-to-pdf-v8';
 const urlsToCache = [
   './',
   './index.html',
@@ -7,7 +7,6 @@ const urlsToCache = [
   './icon-512.png',
   // Core libraries
   'https://cdnjs.cloudflare.com/ajax/libs/marked/9.1.6/marked.min.js',
-  'https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js',
   // Mermaid
   'https://cdnjs.cloudflare.com/ajax/libs/mermaid/10.6.1/mermaid.min.js',
   // KaTeX
