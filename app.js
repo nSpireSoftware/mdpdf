@@ -108,7 +108,6 @@
 
       // Temporarily add to DOM for html2canvas using visibility:hidden instead of off-screen
       const tempWrapper = document.createElement('div');
-      tempWrapper.className = 'preview';
       tempWrapper.style.position = 'fixed';
       tempWrapper.style.visibility = 'hidden';
       tempWrapper.style.left = '0';
