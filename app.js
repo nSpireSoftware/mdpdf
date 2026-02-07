@@ -139,14 +139,16 @@
       clone.style.position = 'static';
       clone.style.visibility = 'visible';
 
-      // Temporarily add to DOM for html2canvas using visibility:hidden instead of off-screen
+      // The element must be fully visible for html2canvas to render it.
+      // An opaque overlay (managed by convertSvgsToPngs) hides it from view.
       const tempWrapper = document.createElement('div');
       tempWrapper.style.position = 'fixed';
-      tempWrapper.style.visibility = 'hidden';
       tempWrapper.style.left = '0';
       tempWrapper.style.top = '0';
       tempWrapper.style.width = width + 'px';
       tempWrapper.style.height = height + 'px';
+      tempWrapper.style.zIndex = '2147483646';
+      tempWrapper.style.pointerEvents = 'none';
       tempWrapper.appendChild(clone);
       document.body.appendChild(tempWrapper);
 
@@ -162,7 +164,7 @@
         return null;
       }
 
-      // Capture the cloned container
+      // Capture the cloned container (fully visible, behind the overlay)
       const canvas = await html2canvas(clone, {
         scale: window.devicePixelRatio || 2,
         useCORS: true,
@@ -195,38 +197,75 @@
     const mermaidContainers = element.querySelectorAll('.mermaid');
     console.log(`Found ${mermaidContainers.length} .mermaid container(s) to convert`);
 
-    for (let i = 0; i < mermaidContainers.length; i++) {
-      const container = mermaidContainers[i];
-      const svg = container.querySelector('svg');
+    if (mermaidContainers.length === 0) return;
 
-      if (!svg) {
-        console.warn(`No SVG found in container ${i + 1}`);
-        continue;
-      }
+    // Add an opaque overlay matching the page background so the fully-visible
+    // temp elements used by html2canvas are hidden from the user.
+    const conversionOverlay = document.createElement('div');
+    conversionOverlay.style.cssText =
+      'position:fixed;inset:0;z-index:2147483647;' +
+      'background:linear-gradient(135deg,#e0e7ff 0%,#c7d2fe 50%,#ddd6fe 100%);' +
+      'display:flex;align-items:center;justify-content:center;flex-direction:column;' +
+      'pointer-events:none;';
 
-      console.log(`Converting container ${i + 1}/${mermaidContainers.length}...`);
+    const spinnerKeyframes = document.createElement('style');
+    spinnerKeyframes.textContent =
+      '@keyframes mdpdf-spin{0%{transform:rotate(0deg)}100%{transform:rotate(360deg)}}';
+    conversionOverlay.appendChild(spinnerKeyframes);
 
-      try {
-        const pngData = await convertSvgToPng(svg);
+    const spinner = document.createElement('div');
+    spinner.style.cssText =
+      'width:40px;height:40px;border:4px solid #a5b4fc;' +
+      'border-top-color:#4f46e5;border-radius:50%;' +
+      'animation:mdpdf-spin .8s linear infinite;margin-bottom:16px;';
+    conversionOverlay.appendChild(spinner);
 
-        if (pngData) {
-          const img = document.createElement('img');
-          img.src = pngData;
-          img.style.maxWidth = '100%';
-          img.style.height = 'auto';
-          img.alt = 'Converted diagram';
-          img.className = 'mermaid-png';
+    const overlayMsg = document.createElement('div');
+    overlayMsg.textContent = 'Rendering diagrams\u2026';
+    overlayMsg.style.cssText =
+      'color:#4338ca;font-family:system-ui,sans-serif;font-size:1.1rem;' +
+      'font-weight:500;letter-spacing:0.02em;';
+    conversionOverlay.appendChild(overlayMsg);
 
-          // Replace the entire .mermaid container content
-          container.innerHTML = '';
-          container.appendChild(img);
-          console.log(`Container ${i + 1} converted successfully`);
-        } else {
-          console.warn(`Container ${i + 1} conversion failed`);
+    document.body.appendChild(conversionOverlay);
+
+    try {
+      for (let i = 0; i < mermaidContainers.length; i++) {
+        const container = mermaidContainers[i];
+        const svg = container.querySelector('svg');
+
+        if (!svg) {
+          console.warn(`No SVG found in container ${i + 1}`);
+          continue;
         }
-      } catch (err) {
-        console.error(`Container ${i + 1} conversion failed:`, err);
+
+        console.log(`Converting container ${i + 1}/${mermaidContainers.length}...`);
+
+        try {
+          const pngData = await convertSvgToPng(svg);
+
+          if (pngData) {
+            const img = document.createElement('img');
+            img.src = pngData;
+            img.style.maxWidth = '100%';
+            img.style.height = 'auto';
+            img.alt = 'Converted diagram';
+            img.className = 'mermaid-png';
+
+            // Replace the entire .mermaid container content
+            container.innerHTML = '';
+            container.appendChild(img);
+            console.log(`Container ${i + 1} converted successfully`);
+          } else {
+            console.warn(`Container ${i + 1} conversion failed`);
+          }
+        } catch (err) {
+          console.error(`Container ${i + 1} conversion failed:`, err);
+        }
       }
+    } finally {
+      // Always remove the overlay, even if an error occurred
+      document.body.removeChild(conversionOverlay);
     }
   }
 
