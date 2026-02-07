@@ -36,9 +36,19 @@
         theme: 'default',
         securityLevel: 'loose',
         fontFamily: 'system-ui, sans-serif',
-        flowchart: { useMaxWidth: true, htmlLabels: true },
+        // Prevent external font loading by using system fonts only
+        themeCSS: `
+          * { font-family: system-ui, -apple-system, sans-serif !important; }
+        `,
+        flowchart: {
+          useMaxWidth: true,
+          htmlLabels: true,
+          curve: 'basis'
+        },
         sequence: { useMaxWidth: true },
-        gantt: { useMaxWidth: true }
+        gantt: { useMaxWidth: true },
+        // Disable external image loading
+        mindmap: { useMaxWidth: true }
       });
     }
   }
@@ -67,90 +77,125 @@
   // ==================== SVG TO PNG CONVERSION ====================
   async function convertSvgToPng(svgElement) {
     try {
-      const serializer = new XMLSerializer();
-      let svgString = serializer.serializeToString(svgElement);
+      // Get the parent .mermaid container which has proper styling
+      const parentContainer = svgElement.closest('.mermaid') || svgElement.parentElement;
+      const svg = svgElement;
 
-      let width, height;
-      const viewBox = svgElement.getAttribute('viewBox');
-
-      if (svgElement.hasAttribute('width') && svgElement.hasAttribute('height')) {
-        width = parseFloat(svgElement.getAttribute('width'));
-        height = parseFloat(svgElement.getAttribute('height'));
-      }
-
-      if ((!width || !height) && viewBox) {
-        const viewBoxParts = viewBox.split(/\s+/);
-        if (viewBoxParts.length === 4) {
-          width = parseFloat(viewBoxParts[2]);
-          height = parseFloat(viewBoxParts[3]);
+      let width = 800;
+      let height = 600;
+      const viewBoxAttr = svg.getAttribute('viewBox');
+      if (viewBoxAttr) {
+        const parts = viewBoxAttr.trim().split(/\s+/);
+        if (parts.length >= 4) {
+          width = Math.max(100, Math.ceil(parseFloat(parts[2])));
+          height = Math.max(50, Math.ceil(parseFloat(parts[3])));
         }
+      } else {
+        // Fallback
+        width = parseFloat(svg.getAttribute('width')) || 800;
+        height = parseFloat(svg.getAttribute('height')) || 600;
+      }
+      // Allowance for .mermaid padding: 20px each side
+      width += 40;
+      height += 40;
+
+      console.log('Using viewBox dimensions:', width, 'x', height);
+
+      // Clone the PARENT container (not just SVG) to preserve styles
+      const clone = parentContainer.cloneNode(true);
+      clone.style.position = 'static';
+      clone.style.visibility = 'visible';
+
+      // Temporarily add to DOM for html2canvas using visibility:hidden instead of off-screen
+      const tempWrapper = document.createElement('div');
+      tempWrapper.className = 'preview';
+      tempWrapper.style.position = 'fixed';
+      tempWrapper.style.visibility = 'hidden';
+      tempWrapper.style.left = '0';
+      tempWrapper.style.top = '0';
+      tempWrapper.style.width = width + 'px';
+      tempWrapper.style.height = height + 'px';
+      tempWrapper.appendChild(clone);
+      document.body.appendChild(tempWrapper);
+
+      // Force reflow
+      tempWrapper.offsetHeight;
+
+      // Small delay for rendering
+      await new Promise(resolve => setTimeout(resolve, 100));
+
+      if (typeof html2canvas === 'undefined') {
+        console.error('html2canvas library not loaded');
+        document.body.removeChild(tempWrapper);
+        return null;
       }
 
-      if ((!width || !height) && svgElement.getBoundingClientRect) {
-        const rect = svgElement.getBoundingClientRect();
-        width = rect.width;
-        height = rect.height;
-      }
-
-      if (!width || !height || width === 0 || height === 0) {
-        width = 800;
-        height = 600;
-      }
-
-      const scale = window.devicePixelRatio || 1;
-      const canvasWidth = width * scale;
-      const canvasHeight = height * scale;
-
-      const canvas = document.createElement('canvas');
-      canvas.width = canvasWidth;
-      canvas.height = canvasHeight;
-      const ctx = canvas.getContext('2d');
-
-      const svgBlob = new Blob([svgString], { type: 'image/svg+xml;charset=utf-8' });
-      const url = URL.createObjectURL(svgBlob);
-
-      return new Promise((resolve) => {
-        const img = new Image();
-        img.onload = () => {
-          ctx.fillStyle = 'white';
-          ctx.fillRect(0, 0, canvasWidth, canvasHeight);
-          ctx.drawImage(img, 0, 0, canvasWidth, canvasHeight);
-          URL.revokeObjectURL(url);
-          resolve(canvas.toDataURL('image/png'));
-        };
-        img.onerror = () => {
-          URL.revokeObjectURL(url);
-          resolve(null);
-        };
-        img.src = url;
+      // Capture the cloned container
+      const canvas = await html2canvas(clone, {
+        scale: window.devicePixelRatio || 2,
+        useCORS: true,
+        allowTaint: true,
+        backgroundColor: '#f8fafc',
+        logging: true,
+        width: width,
+        height: height,
+        foreignObjectRendering: true
       });
+
+      console.log('Canvas created:', canvas.width, 'x', canvas.height);
+
+      // Clean up
+      document.body.removeChild(tempWrapper);
+
+      // Convert to PNG
+      const dataUrl = canvas.toDataURL('image/png');
+      console.log('PNG data URL length:', dataUrl.length);
+
+      return dataUrl;
     } catch (err) {
-      console.error('SVG to PNG conversion error:', err);
+      console.error('html2canvas conversion error:', err);
       return null;
     }
   }
 
   async function convertSvgsToPngs(element) {
-    const svgs = element.querySelectorAll('svg');
-    const conversions = Array.from(svgs).map(svg => convertSvgToPng(svg));
-    const pngDataUrls = await Promise.all(conversions);
+    // Find SVGs within .mermaid containers specifically
+    const mermaidContainers = element.querySelectorAll('.mermaid');
+    console.log(`Found ${mermaidContainers.length} .mermaid container(s) to convert`);
 
-    svgs.forEach((svg, index) => {
-      const pngData = pngDataUrls[index];
-      if (pngData) {
-        const img = document.createElement('img');
-        img.src = pngData;
-        img.style.maxWidth = '100%';
-        img.style.height = 'auto';
+    for (let i = 0; i < mermaidContainers.length; i++) {
+      const container = mermaidContainers[i];
+      const svg = container.querySelector('svg');
 
-        const parentMermaid = svg.closest('.mermaid');
-        if (parentMermaid) {
-          img.className = 'mermaid-png';
-        }
-
-        svg.parentNode.replaceChild(img, svg);
+      if (!svg) {
+        console.warn(`No SVG found in container ${i + 1}`);
+        continue;
       }
-    });
+
+      console.log(`Converting container ${i + 1}/${mermaidContainers.length}...`);
+
+      try {
+        const pngData = await convertSvgToPng(svg);
+
+        if (pngData) {
+          const img = document.createElement('img');
+          img.src = pngData;
+          img.style.maxWidth = '100%';
+          img.style.height = 'auto';
+          img.alt = 'Converted diagram';
+          img.className = 'mermaid-png';
+
+          // Replace the entire .mermaid container content
+          container.innerHTML = '';
+          container.appendChild(img);
+          console.log(`Container ${i + 1} converted successfully`);
+        } else {
+          console.warn(`Container ${i + 1} conversion failed`);
+        }
+      } catch (err) {
+        console.error(`Container ${i + 1} conversion failed:`, err);
+      }
+    }
   }
 
   // ==================== RENDERING ====================
@@ -209,11 +254,17 @@
 
     mermaidId = 0;
     preview.innerHTML = marked.parse(md);
-    await renderMermaid();
-    renderMath();
 
+    // Always enable buttons when there's content, even if rendering fails
     downloadBtn.disabled = false;
     copyHtmlBtn.disabled = false;
+
+    try {
+      await renderMermaid();
+      renderMath();
+    } catch (err) {
+      console.error('Rendering error:', err);
+    }
   }
 
   // ==================== PWA & SERVICE WORKER ====================
