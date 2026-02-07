@@ -74,6 +74,39 @@
     setTimeout(() => toast.classList.remove('show'), 3000);
   }
 
+  // ==================== MATH PROTECTION ====================
+  // Protect math regions from marked.js processing (breaks: true converts
+  // newlines to <br>, and underscores/backslashes can be mangled).
+  function protectMath(text) {
+    const regions = [];
+    let idx = 0;
+
+    function replacer(match) {
+      const placeholder = `MATHPH${idx}ENDPH`;
+      regions.push({ placeholder, content: match });
+      idx++;
+      return placeholder;
+    }
+
+    // Block math: $$...$$ (may span multiple lines)
+    text = text.replace(/\$\$([\s\S]*?)\$\$/g, replacer);
+    // Block math: \[...\]
+    text = text.replace(/\\\[([\s\S]*?)\\\]/g, replacer);
+    // Inline math: $...$  (single line only, non-greedy)
+    text = text.replace(/\$([^\$\n]+?)\$/g, replacer);
+    // Inline math: \(...\)
+    text = text.replace(/\\\((.+?)\\\)/g, replacer);
+
+    return { text, regions };
+  }
+
+  function restoreMath(html, regions) {
+    for (const { placeholder, content } of regions) {
+      html = html.replace(placeholder, content);
+    }
+    return html;
+  }
+
   // ==================== SVG TO PNG CONVERSION ====================
   async function convertSvgToPng(svgElement) {
     try {
@@ -252,7 +285,9 @@
     }
 
     mermaidId = 0;
-    preview.innerHTML = marked.parse(md);
+    const { text: safeMd, regions } = protectMath(md);
+    const html = restoreMath(marked.parse(safeMd), regions);
+    preview.innerHTML = html;
 
     // Always enable buttons when there's content, even if rendering fails
     downloadBtn.disabled = false;

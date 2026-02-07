@@ -16,6 +16,14 @@ Convert Markdown to PDF with Mermaid diagrams and LaTeX math support. A fully of
 - **LaTeX Math** — Full math support using KaTeX for beautiful equations and formulas with multiple delimiter support:
   - Inline math: `$...$` or `\(...\)`
   - Block math: `$$...$$` or `\[...\]`
+
+  **Examples:**
+
+  Inline math — the quadratic formula is $x = \frac{-b \pm \sqrt{b^2 - 4ac}}{2a}$ embedded within a sentence.
+
+  Block math — display equations on their own line:
+
+  $$\int_{-\infty}^{\infty} e^{-x^2} \, dx = \sqrt{\pi}$$
 - **SVG to PNG Conversion** — Optional toggle to convert SVG diagrams (including Mermaid) to PNG images for better compatibility with Word processors
 
 ### 📱 Progressive Web App
@@ -160,6 +168,7 @@ stateDiagram-v2
 | [marked](https://marked.js.org/) | Markdown parser and compiler | 9.1.6 |
 | [Mermaid](https://mermaid.js.org/) | Diagram and flowchart rendering | 10.6.1 |
 | [KaTeX](https://katex.org/) | Fast math typesetting | 0.16.9 |
+| [html2canvas](https://html2canvas.hertzen.com/) | SVG-to-PNG conversion | 1.4.1 |
 
 ### File Structure
 
@@ -191,13 +200,15 @@ The service worker implements a **cache-first** strategy for offline support:
 - A4 page format with 20mm/18mm margins
 - Automatic page break controls (`page-break-inside: avoid`)
 - Mermaid SVG scaling for proper PDF output
-- Optional SVG-to-PNG conversion using Canvas API
+- Optional SVG-to-PNG conversion using html2canvas
 
 **SVG to PNG Conversion**:
-- Serializes SVG elements using `XMLSerializer`
-- Handles dimension extraction from viewBox, width/height attributes, or bounding rect
-- Uses high-DPI canvas rendering for crisp output
-- Converts transparent backgrounds to white for print compatibility
+- Clones the parent `.mermaid` container (not just the SVG) to preserve surrounding styles
+- Extracts dimensions from SVG `viewBox`, falling back to `width`/`height` attributes
+- Temporarily adds the clone to the DOM with `visibility: hidden` for accurate rendering
+- Uses `html2canvas` to capture the container at high DPI (`devicePixelRatio`) for crisp output
+- Sets a light background (`#f8fafc`) for print compatibility
+- Converts the resulting canvas to a PNG data URL
 
 **PWA Install Flow**:
 1. Listens for `beforeinstallprompt` event
@@ -218,11 +229,13 @@ The service worker implements a **cache-first** strategy for offline support:
 
 **Markdown Rendering Pipeline**:
 1. User input debounced at 300ms
-2. `marked.parse()` converts Markdown to HTML
-3. Post-processing renders Mermaid diagrams asynchronously
-4. `renderMathInElement()` processes LaTeX delimiters
-5. Preview panel updated with rendered content
-6. Action buttons enabled when content exists
+2. Math regions (`$...$`, `$$...$$`, `\(...\)`, `\[...\]`) are extracted and replaced with placeholders to protect them from Markdown processing
+3. `marked.parse()` converts Markdown to HTML
+4. Math placeholders are restored with original LaTeX content
+5. Post-processing renders Mermaid diagrams asynchronously
+6. `renderMathInElement()` processes LaTeX delimiters
+7. Preview panel updated with rendered content
+8. Action buttons enabled when content exists
 
 ## Usage
 

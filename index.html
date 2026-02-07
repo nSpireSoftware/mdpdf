@@ -510,6 +510,11 @@
     }
 
     @media print {
+      html {
+        height: auto !important;
+        overflow: visible !important;
+      }
+
       body > *:not(#printContainer) {
         display: none !important;
       }
@@ -521,7 +526,9 @@
       body {
         background: white !important;
         color: #1e293b !important;
+        height: auto !important;
         min-height: auto !important;
+        overflow: visible !important;
         font-family: system-ui, -apple-system, sans-serif;
         font-size: 12pt;
         line-height: 1.6;
