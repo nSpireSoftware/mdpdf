@@ -1,7 +1,8 @@
-const CACHE_NAME = 'md-to-pdf-v8';
+const CACHE_NAME = 'md-to-pdf-v9';
 const urlsToCache = [
   './',
   './index.html',
+  './app.js',
   './manifest.json',
   './icon-192.png',
   './icon-512.png',
@@ -9,6 +10,8 @@ const urlsToCache = [
   'https://cdnjs.cloudflare.com/ajax/libs/marked/9.1.6/marked.min.js',
   // Mermaid
   'https://cdnjs.cloudflare.com/ajax/libs/mermaid/10.6.1/mermaid.min.js',
+  // html2canvas
+  'https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js',
   // KaTeX
   'https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.css',
   'https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.js',

@@ -365,8 +365,19 @@
               }
             };
           };
+
+          // Periodically check for SW updates (every 60 minutes)
+          // so long-lived / installed PWA sessions discover new versions
+          setInterval(() => {
+            reg.update().catch(() => {});
+          }, 60 * 60 * 1000);
         })
         .catch((err) => console.log('Service Worker registration failed', err));
+
+      // When a new service worker takes over, reload to get fresh assets
+      navigator.serviceWorker.addEventListener('controllerchange', () => {
+        window.location.reload();
+      });
     }
   }
 
