@@ -37,6 +37,9 @@ repo-root/
 │   ├── bump-version.js          ← bumps SW cache version for a single named app
 │   └── new-app.js               ← scaffolds a new app from core/ templates
 └── src/
+    ├── shared/                  ← cross-app services (added when 2+ apps exist)
+    │   ├── hub.js               ← SharedWorker: service registry + message routing
+    │   └── opfs.js              ← shared OPFS helpers (namespaced path utilities)
     ├── mdpdf/                   ← first PDA
     │   ├── README.md
     │   ├── index.html
@@ -47,6 +50,72 @@ repo-root/
     │   ├── icon-512.png
     │   └── icon.svg
     └── {appname}/               ← future PDAs follow the same pattern
+```
+
+---
+
+## Inter-App Communication
+
+### Architecture: SharedWorker + OPFS
+
+PDAs communicate via a **SharedWorker service hub** (`src/shared/hub.js`) that acts as a
+message router and service registry, with **OPFS (Origin Private File System)** as the data
+plane. This is the canonical inter-app pattern for all PDAs in this repository.
+
+```
+App A                SharedWorker (/shared/hub.js)               App B
+  │── postMessage ──►│                                             │
+  │  { action,        │── forward to provider ────────────────────►│
+  │    service,        │                                            │ reads OPFS
+  │    inputPath,      │                                            │ does work
+  │    outputPath }    │                                            │ writes OPFS
+  │                   │◄── { status: 'done', outputPath } ─────────│
+  │◄── postMessage ───│
+```
+
+**Key principles:**
+
+1. **Messages are envelopes, not data carriers.** Messages contain only JSON metadata
+   (`action`, `service`, `inputPath`, `outputPath`, `replyTo`). Binary data and large
+   payloads are never passed through messages — they travel exclusively via OPFS paths.
+
+2. **OPFS paths must be namespaced.** Every app must root its OPFS operations under a
+   directory named after its own app slug, e.g.:
+   ```js
+   const root = await navigator.storage.getDirectory();
+   const appDir = await root.getDirectoryHandle('mdpdf', { create: true });
+   ```
+   Never read or write to the OPFS root directly.
+
+3. **Apps register their services with the hub on startup.** If an app provides callable
+   services (e.g., `md-to-pdf`, `parse-csv`), it must announce them:
+   ```js
+   const hub = new SharedWorker('/shared/hub.js');
+   hub.port.start();
+   hub.port.postMessage({
+     action: 'register',
+     app: 'mdpdf',
+     services: ['md-to-pdf']
+   });
+   ```
+
+4. **The hub is at `/shared/hub.js` — a shared origin-root path.** All apps connect to
+   the same URL regardless of their own path. Vercel routes `/shared/:path*` →
+   `src/shared/:path*`.
+
+5. **Build `src/shared/` only when two or more apps exist.** Do not create speculative
+   shared infrastructure. The SharedWorker is added when a real integration need arises.
+
+6. **Services must tolerate the target app being closed.** The hub cannot wake a closed
+   app. If the target is unavailable, strategies include:
+   - Write a queued task to the target app's OPFS mailbox directory; it reads on next open.
+   - Return an error to the caller indicating the service is not currently available.
+
+### Vercel routing for shared services
+
+When `src/shared/` is created, add to `vercel.json`:
+```json
+{ "source": "/shared/:path*", "destination": "/src/shared/:path*" }
 ```
 
 ---
