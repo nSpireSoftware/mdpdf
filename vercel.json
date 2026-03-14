@@ -1,0 +1,6 @@
+{
+  "rewrites": [
+    { "source": "/mdpdf",        "destination": "/src/mdpdf/index.html" },
+    { "source": "/mdpdf/:path*", "destination": "/src/mdpdf/:path*" }
+  ]
+}

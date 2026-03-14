@@ -1,0 +1,307 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="{{THEME_COLOR}}">
+  <meta name="description" content="{{APP_DESCRIPTION}}">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="{{APP_SHORT_NAME}}">
+  <link rel="apple-touch-icon" href="icon-192.png">
+  <title>{{APP_NAME}}</title>
+  <link rel="manifest" href="manifest.json">
+  <link rel="icon" type="image/png" href="icon-192.png">
+
+  <!--
+    CDN LIBRARIES
+    Add app-specific CDN <script> and <link> tags here.
+    All CDN URLs must also be listed in sw.js urlsToCache for offline support.
+    Example:
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/example/1.0.0/example.min.js"></script>
+  -->
+
+  <style>
+    /* ==================== RESET & BASE ==================== */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    html, body {
+      height: 100%;
+      overflow: hidden;
+    }
+
+    body {
+      font-family: system-ui, -apple-system, sans-serif;
+      background: linear-gradient(135deg, #0f172a 0%, #1e1b4b 100%);
+      color: #e2e8f0;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* ==================== LAYOUT ==================== */
+    .container {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+    }
+
+    header {
+      text-align: center;
+      padding: 12px 20px;
+      flex-shrink: 0;
+      background: rgba(15, 23, 42, 0.8);
+      border-bottom: 1px solid rgba(148, 163, 184, 0.2);
+    }
+
+    header h1 {
+      font-size: 1.8rem;
+      background: linear-gradient(135deg, #818cf8, #c084fc);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      margin-bottom: 4px;
+    }
+
+    .features {
+      display: flex;
+      justify-content: center;
+      gap: 12px;
+      margin-top: 8px;
+      flex-wrap: wrap;
+    }
+
+    .feature-badge {
+      background: rgba(99, 102, 241, 0.2);
+      border: 1px solid rgba(99, 102, 241, 0.3);
+      padding: 3px 10px;
+      border-radius: 20px;
+      font-size: 0.75rem;
+      color: #a5b4fc;
+    }
+
+    /* ==================== INSTALL BANNER ==================== */
+    .install-banner {
+      background: rgba(99, 102, 241, 0.2);
+      border: 1px solid rgba(99, 102, 241, 0.4);
+      border-radius: 12px;
+      padding: 8px 16px;
+      margin: 8px 20px;
+      display: none;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      flex-shrink: 0;
+    }
+
+    .install-banner.show { display: flex; }
+
+    .install-btn {
+      background: #6366f1;
+      color: white;
+      border: none;
+      padding: 6px 16px;
+      border-radius: 8px;
+      cursor: pointer;
+      font-weight: 600;
+      white-space: nowrap;
+      transition: all 0.2s;
+      font-size: 0.85rem;
+    }
+
+    .install-btn:hover { background: #4f46e5; transform: scale(1.02); }
+
+    /* ==================== APP CONTENT AREA ==================== */
+    /* Replace this comment block with your app's main content styles */
+    .main-content {
+      flex: 1;
+      min-height: 0;
+      overflow: hidden;
+      /* APP-SPECIFIC: customize layout here */
+    }
+
+    /* ==================== ACTION BAR ==================== */
+    .actions {
+      display: flex;
+      gap: 12px;
+      justify-content: center;
+      flex-wrap: wrap;
+      padding: 12px 20px;
+      flex-shrink: 0;
+      background: rgba(15, 23, 42, 0.8);
+      border-top: 1px solid rgba(148, 163, 184, 0.2);
+    }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 10px 20px;
+      border-radius: 10px;
+      font-size: 0.9rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+      border: none;
+    }
+
+    .btn svg { width: 18px; height: 18px; }
+
+    .btn-primary {
+      background: linear-gradient(135deg, #6366f1, #8b5cf6);
+      color: white;
+      box-shadow: 0 4px 12px rgba(99, 102, 241, 0.4);
+    }
+
+    .btn-primary:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 6px 16px rgba(99, 102, 241, 0.5);
+    }
+
+    .btn-primary:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+      transform: none;
+    }
+
+    .btn-secondary {
+      background: rgba(51, 65, 85, 0.8);
+      color: #e2e8f0;
+      border: 1px solid rgba(148, 163, 184, 0.3);
+    }
+
+    .btn-secondary:hover { background: rgba(71, 85, 105, 0.8); }
+
+    /* ==================== TOAST ==================== */
+    .toast {
+      position: fixed;
+      bottom: 30px;
+      left: 50%;
+      transform: translateX(-50%) translateY(100px);
+      background: #10b981;
+      color: white;
+      padding: 14px 28px;
+      border-radius: 12px;
+      font-weight: 600;
+      opacity: 0;
+      transition: all 0.3s;
+      z-index: 1000;
+    }
+
+    .toast.show {
+      transform: translateX(-50%) translateY(0);
+      opacity: 1;
+    }
+
+    /* ==================== DROP OVERLAY ==================== */
+    .drop-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(99, 102, 241, 0.9);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 999;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.2s;
+    }
+
+    .drop-overlay.active {
+      opacity: 1;
+      pointer-events: auto;
+    }
+
+    .drop-message { text-align: center; color: white; }
+    .drop-message svg { width: 80px; height: 80px; margin-bottom: 20px; }
+    .drop-message p { font-size: 1.5rem; font-weight: 600; }
+
+    /* ==================== UPDATE BANNER ==================== */
+    .update-banner {
+      position: fixed;
+      top: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: linear-gradient(135deg, #10b981, #059669);
+      color: white;
+      padding: 12px 20px;
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      gap: 15px;
+      box-shadow: 0 10px 40px rgba(16, 185, 129, 0.4);
+      z-index: 1001;
+      font-weight: 500;
+    }
+
+    .update-banner button {
+      background: white;
+      color: #059669;
+      border: none;
+      padding: 8px 16px;
+      border-radius: 6px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+
+    .update-banner button.dismiss {
+      background: rgba(255,255,255,0.2);
+      color: white;
+    }
+
+    /* ==================== RESPONSIVE ==================== */
+    @media (max-width: 768px) {
+      header h1 { font-size: 1.4rem; }
+      .features { gap: 8px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>{{APP_ICON}} {{APP_NAME}}</h1>
+      <div class="features">
+        <!-- APP-SPECIFIC: add feature badges here -->
+        <!-- <span class="feature-badge">📊 Feature 1</span> -->
+      </div>
+    </header>
+
+    <div class="install-banner" id="installBanner">
+      <span>📲 Install for offline access</span>
+      <button class="install-btn" id="installBtn">Install</button>
+    </div>
+
+    <!-- ==================== APP CONTENT ==================== -->
+    <!-- Replace this section with your app's HTML content -->
+    <div class="main-content" id="mainContent">
+      <!-- APP-SPECIFIC CONTENT HERE -->
+    </div>
+
+    <!-- ==================== ACTION BAR ==================== -->
+    <div class="actions">
+      <!-- APP-SPECIFIC BUTTONS HERE -->
+      <!-- Example:
+      <button class="btn btn-secondary" id="clearBtn">Clear</button>
+      <button class="btn btn-primary" id="actionBtn">Do Something</button>
+      -->
+    </div>
+  </div>
+
+  <div class="toast" id="toast"></div>
+
+  <div class="drop-overlay" id="dropOverlay">
+    <div class="drop-message">
+      <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+          d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/>
+      </svg>
+      <p>Drop your file here</p>
+    </div>
+  </div>
+
+  <!-- Application logic: all app code lives in app.js -->
+  <script src="app.js"></script>
+</body>
+</html>

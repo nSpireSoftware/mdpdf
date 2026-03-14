@@ -1,0 +1,799 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#6366f1">
+  <meta name="description" content="Convert Markdown to PDF with Mermaid diagrams and LaTeX math">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="MD to PDF">
+  <link rel="apple-touch-icon" href="icon-192.png">
+  <title>Markdown to PDF</title>
+  <link rel="manifest" href="manifest.json">
+  <link rel="icon" type="image/png" href="icon-192.png">
+
+  <!-- Core libraries -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/marked/9.1.6/marked.min.js"></script>
+
+  <!-- Mermaid for diagrams -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mermaid/10.6.1/mermaid.min.js"></script>
+
+  <!-- KaTeX for math -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/contrib/auto-render.min.js"></script>
+
+  <!-- html2canvas for SVG to PNG conversion -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    html, body {
+      height: 100%;
+      overflow: hidden;
+    }
+
+    body {
+      font-family: system-ui, -apple-system, sans-serif;
+      background: linear-gradient(135deg, #0f172a 0%, #1e1b4b 100%);
+      color: #e2e8f0;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .container {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      max-width: 100%;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+    }
+
+    header {
+      text-align: center;
+      padding: 12px 20px;
+      flex-shrink: 0;
+      background: rgba(15, 23, 42, 0.8);
+      border-bottom: 1px solid rgba(148, 163, 184, 0.2);
+    }
+
+    h1 {
+      font-size: 1.8rem;
+      background: linear-gradient(135deg, #818cf8, #c084fc);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      margin-bottom: 4px;
+    }
+
+    .subtitle {
+      color: #94a3b8;
+      font-size: 0.9rem;
+      display: none;
+    }
+
+    .features {
+      display: flex;
+      justify-content: center;
+      gap: 12px;
+      margin-top: 8px;
+      flex-wrap: wrap;
+    }
+
+    .feature-badge {
+      background: rgba(99, 102, 241, 0.2);
+      border: 1px solid rgba(99, 102, 241, 0.3);
+      padding: 3px 10px;
+      border-radius: 20px;
+      font-size: 0.75rem;
+      color: #a5b4fc;
+    }
+
+    .install-banner {
+      background: rgba(99, 102, 241, 0.2);
+      border: 1px solid rgba(99, 102, 241, 0.4);
+      border-radius: 12px;
+      padding: 8px 16px;
+      margin: 8px 20px;
+      display: none;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      flex-shrink: 0;
+    }
+
+    .install-banner.show { display: flex; }
+
+    .install-btn {
+      background: #6366f1;
+      color: white;
+      border: none;
+      padding: 6px 16px;
+      border-radius: 8px;
+      cursor: pointer;
+      font-weight: 600;
+      white-space: nowrap;
+      transition: all 0.2s;
+      font-size: 0.85rem;
+    }
+
+    .install-btn:hover { background: #4f46e5; transform: scale(1.02); }
+
+    .main-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+      flex: 1;
+      min-height: 0;
+      padding: 0 20px;
+      overflow: hidden;
+    }
+
+    @media (max-width: 768px) {
+      .main-grid { grid-template-columns: 1fr; }
+      h1 { font-size: 1.4rem; }
+      .features { gap: 8px; }
+      .subtitle { display: none; }
+    }
+
+    .panel {
+      background: rgba(30, 41, 59, 0.8);
+      border: 1px solid rgba(148, 163, 184, 0.2);
+      border-radius: 12px;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      min-height: 0;
+    }
+
+    .panel-header {
+      background: rgba(51, 65, 85, 0.5);
+      padding: 10px 16px;
+      font-weight: 600;
+      color: #cbd5e1;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-shrink: 0;
+      font-size: 0.9rem;
+    }
+
+    .panel-header svg { width: 18px; height: 18px; }
+
+    textarea {
+      flex: 1;
+      min-height: 0;
+      background: transparent;
+      border: none;
+      padding: 16px;
+      color: #e2e8f0;
+      font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+      font-size: 14px;
+      line-height: 1.6;
+      resize: none;
+      outline: none;
+      overflow-y: auto;
+    }
+
+    textarea::placeholder { color: #64748b; }
+
+    .preview {
+      flex: 1;
+      min-height: 0;
+      padding: 16px;
+      overflow-y: auto;
+      background: white;
+      color: #1e293b;
+    }
+
+    .preview h1, .preview h2, .preview h3, .preview h4 {
+      color: #0f172a;
+      margin: 1em 0 0.5em;
+      line-height: 1.3;
+    }
+
+    .preview h1 { font-size: 2em; border-bottom: 2px solid #e2e8f0; padding-bottom: 0.3em; }
+    .preview h2 { font-size: 1.5em; border-bottom: 1px solid #e2e8f0; padding-bottom: 0.3em; }
+    .preview h3 { font-size: 1.25em; }
+
+    .preview p { margin: 1em 0; line-height: 1.7; }
+    .preview ul, .preview ol { margin: 1em 0; padding-left: 2em; }
+    .preview li { margin: 0.5em 0; }
+
+    .preview code {
+      background: #f1f5f9;
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-family: 'Monaco', 'Menlo', monospace;
+      font-size: 0.9em;
+    }
+
+    .preview pre {
+      background: #1e293b;
+      color: #e2e8f0;
+      padding: 16px;
+      border-radius: 8px;
+      overflow-x: auto;
+      margin: 1em 0;
+    }
+
+    .preview pre code {
+      background: transparent;
+      padding: 0;
+      color: inherit;
+    }
+
+    .preview blockquote {
+      border-left: 4px solid #6366f1;
+      margin: 1em 0;
+      padding: 0.5em 1em;
+      background: #f8fafc;
+      color: #475569;
+    }
+
+    .preview table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 1em 0;
+    }
+
+    .preview th, .preview td {
+      border: 1px solid #e2e8f0;
+      padding: 10px 12px;
+      text-align: left;
+    }
+
+    .preview th { background: #f1f5f9; font-weight: 600; }
+    .preview a { color: #6366f1; }
+    .preview hr { border: none; border-top: 2px solid #e2e8f0; margin: 2em 0; }
+
+    /* Mermaid diagram styling */
+    .preview .mermaid {
+      background: #f8fafc;
+      padding: 20px;
+      border-radius: 8px;
+      margin: 1em 0;
+      text-align: center;
+      overflow-x: auto;
+      overflow-y: hidden;
+    }
+
+    .preview .mermaid svg {
+      max-width: 100% !important;
+      height: auto !important;
+      display: block;
+      margin: 0 auto;
+    }
+
+    /* KaTeX math styling */
+    .preview .katex-display {
+      margin: 1em 0;
+      overflow-x: auto;
+      overflow-y: hidden;
+    }
+
+    .preview .katex {
+      font-size: 1.1em;
+    }
+
+    .actions {
+      display: flex;
+      gap: 12px;
+      justify-content: center;
+      flex-wrap: wrap;
+      padding: 12px 20px;
+      flex-shrink: 0;
+      background: rgba(15, 23, 42, 0.8);
+      border-top: 1px solid rgba(148, 163, 184, 0.2);
+    }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 10px 20px;
+      border-radius: 10px;
+      font-size: 0.9rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+      border: none;
+    }
+
+    .btn svg { width: 18px; height: 18px; }
+
+    .btn-primary {
+      background: linear-gradient(135deg, #6366f1, #8b5cf6);
+      color: white;
+      box-shadow: 0 4px 12px rgba(99, 102, 241, 0.4);
+    }
+
+    .btn-primary:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 6px 16px rgba(99, 102, 241, 0.5);
+    }
+
+    .btn-primary:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+      transform: none;
+    }
+
+    .btn-secondary {
+      background: rgba(51, 65, 85, 0.8);
+      color: #e2e8f0;
+      border: 1px solid rgba(148, 163, 184, 0.3);
+    }
+
+    .btn-secondary:hover {
+      background: rgba(71, 85, 105, 0.8);
+    }
+
+    .empty-state {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 100%;
+      color: #94a3b8;
+      text-align: center;
+      padding: 40px;
+    }
+
+    .empty-state svg {
+      width: 64px;
+      height: 64px;
+      margin-bottom: 16px;
+      opacity: 0.5;
+    }
+
+    .spinner {
+      width: 20px;
+      height: 20px;
+      border: 2px solid rgba(255,255,255,0.3);
+      border-top-color: white;
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .toast {
+      position: fixed;
+      bottom: 30px;
+      left: 50%;
+      transform: translateX(-50%) translateY(100px);
+      background: #10b981;
+      color: white;
+      padding: 14px 28px;
+      border-radius: 12px;
+      font-weight: 600;
+      opacity: 0;
+      transition: all 0.3s;
+      z-index: 1000;
+    }
+
+    .toast.show {
+      transform: translateX(-50%) translateY(0);
+      opacity: 1;
+    }
+
+    .drop-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(99, 102, 241, 0.9);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 999;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.2s;
+    }
+
+    .drop-overlay.active {
+      opacity: 1;
+      pointer-events: auto;
+    }
+
+    .drop-message {
+      text-align: center;
+      color: white;
+    }
+
+    .drop-message svg {
+      width: 80px;
+      height: 80px;
+      margin-bottom: 20px;
+    }
+
+    .drop-message p {
+      font-size: 1.5rem;
+      font-weight: 600;
+    }
+
+    .update-banner {
+      position: fixed;
+      top: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: linear-gradient(135deg, #10b981, #059669);
+      color: white;
+      padding: 12px 20px;
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      gap: 15px;
+      box-shadow: 0 10px 40px rgba(16, 185, 129, 0.4);
+      z-index: 1001;
+      font-weight: 500;
+    }
+
+    .update-banner button {
+      background: white;
+      color: #059669;
+      border: none;
+      padding: 8px 16px;
+      border-radius: 6px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+
+    .update-banner button.dismiss {
+      background: rgba(255,255,255,0.2);
+      color: white;
+    }
+
+    /* SVG to PNG Toggle styling */
+    .svg-convert-option {
+      display: flex;
+      justify-content: center;
+      padding: 8px 20px 16px;
+      flex-shrink: 0;
+      background: rgba(15, 23, 42, 0.8);
+    }
+
+    .toggle-label {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      cursor: pointer;
+      color: #a5b4fc;
+      font-size: 0.85rem;
+      user-select: none;
+    }
+
+    .toggle-label input[type="checkbox"] {
+      display: none;
+    }
+
+    .toggle-switch {
+      position: relative;
+      width: 44px;
+      height: 24px;
+      background: rgba(148, 163, 184, 0.3);
+      border-radius: 12px;
+      transition: background 0.3s;
+    }
+
+    .toggle-switch::after {
+      content: '';
+      position: absolute;
+      width: 18px;
+      height: 18px;
+      background: white;
+      border-radius: 50%;
+      top: 3px;
+      left: 3px;
+      transition: transform 0.3s;
+    }
+
+    .toggle-label input[type="checkbox"]:checked + .toggle-switch {
+      background: #6366f1;
+    }
+
+    .toggle-label input[type="checkbox"]:checked + .toggle-switch::after {
+      transform: translateX(20px);
+    }
+
+    .toggle-text {
+      color: #cbd5e1;
+    }
+
+    /* ===== PRINT STYLES ===== */
+    #printContainer {
+      display: none;
+    }
+
+    @media print {
+      html {
+        height: auto !important;
+        overflow: visible !important;
+      }
+
+      body > *:not(#printContainer) {
+        display: none !important;
+      }
+
+      #printContainer {
+        display: block !important;
+      }
+
+      body {
+        background: white !important;
+        color: #1e293b !important;
+        height: auto !important;
+        min-height: auto !important;
+        overflow: visible !important;
+        font-family: system-ui, -apple-system, sans-serif;
+        font-size: 12pt;
+        line-height: 1.6;
+      }
+
+      @page {
+        size: A4;
+        margin: 20mm 18mm;
+      }
+
+      #printContainer h1, #printContainer h2, #printContainer h3, #printContainer h4 {
+        color: #0f172a !important;
+        -webkit-text-fill-color: #0f172a !important;
+        background: none !important;
+        -webkit-background-clip: unset !important;
+        background-clip: unset !important;
+        page-break-after: avoid;
+        break-after: avoid;
+      }
+
+      #printContainer h1 {
+        font-size: 22pt;
+        border-bottom: 2px solid #e2e8f0;
+        padding-bottom: 6pt;
+        margin: 0 0 8pt;
+      }
+
+      #printContainer h2 {
+        font-size: 17pt;
+        border-bottom: 1px solid #e2e8f0;
+        padding-bottom: 4pt;
+        margin: 16pt 0 6pt;
+      }
+
+      #printContainer h3 {
+        font-size: 14pt;
+        margin: 14pt 0 4pt;
+      }
+
+      #printContainer p {
+        margin: 8pt 0;
+        line-height: 1.7;
+        orphans: 3;
+        widows: 3;
+      }
+
+      #printContainer ul, #printContainer ol {
+        margin: 8pt 0;
+        padding-left: 24pt;
+      }
+
+      #printContainer li {
+        margin: 3pt 0;
+      }
+
+      #printContainer a {
+        color: #4338ca !important;
+        text-decoration: underline;
+      }
+
+      #printContainer code {
+        background: #f1f5f9 !important;
+        padding: 1pt 4pt;
+        border-radius: 3pt;
+        font-family: 'Monaco', 'Menlo', 'Consolas', monospace;
+        font-size: 0.85em;
+      }
+
+      #printContainer pre {
+        background: #f1f5f9 !important;
+        color: #1e293b !important;
+        padding: 12pt;
+        border-radius: 4pt;
+        border: 1px solid #e2e8f0;
+        overflow-x: visible;
+        white-space: pre-wrap;
+        word-wrap: break-word;
+        margin: 8pt 0;
+        page-break-inside: avoid;
+        break-inside: avoid;
+      }
+
+      #printContainer pre code {
+        background: transparent !important;
+        padding: 0;
+        color: inherit !important;
+      }
+
+      #printContainer blockquote {
+        border-left: 3pt solid #6366f1;
+        margin: 8pt 0;
+        padding: 6pt 12pt;
+        background: #f8fafc !important;
+        color: #475569 !important;
+        page-break-inside: avoid;
+        break-inside: avoid;
+      }
+
+      #printContainer table {
+        width: 100%;
+        border-collapse: collapse;
+        margin: 8pt 0;
+        page-break-inside: avoid;
+        break-inside: avoid;
+      }
+
+      #printContainer th, #printContainer td {
+        border: 1px solid #cbd5e1;
+        padding: 6pt 8pt;
+        text-align: left;
+        font-size: 10pt;
+      }
+
+      #printContainer th {
+        background: #f1f5f9 !important;
+        font-weight: 600;
+      }
+
+      #printContainer hr {
+        border: none;
+        border-top: 1pt solid #e2e8f0;
+        margin: 14pt 0;
+      }
+
+      #printContainer .mermaid {
+        background: #f8fafc !important;
+        padding: 12pt;
+        border-radius: 4pt;
+        margin: 10pt 0;
+        text-align: center;
+        page-break-inside: avoid;
+        break-inside: avoid;
+        overflow: visible !important;
+      }
+
+      #printContainer .mermaid svg {
+        max-width: 100% !important;
+        height: auto !important;
+        display: block;
+        margin: 0 auto;
+      }
+
+      #printContainer .katex-display {
+        margin: 8pt 0;
+        overflow: visible !important;
+        page-break-inside: avoid;
+        break-inside: avoid;
+      }
+
+      #printContainer .katex {
+        font-size: 1.1em;
+      }
+
+      #printContainer img {
+        max-width: 100% !important;
+        height: auto !important;
+        page-break-inside: avoid;
+        break-inside: avoid;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>📄 Markdown to PDF</h1>
+      <p class="subtitle">Paste or drag &amp; drop your markdown, then download as PDF</p>
+      <div class="features">
+        <span class="feature-badge">📊 Mermaid</span>
+        <span class="feature-badge">📐 LaTeX</span>
+        <span class="feature-badge">📱 Offline</span>
+      </div>
+    </header>
+
+    <div class="install-banner" id="installBanner">
+      <span>📲 Install for offline access</span>
+      <button class="install-btn" id="installBtn">Install</button>
+    </div>
+
+    <div class="main-grid">
+      <div class="panel">
+        <div class="panel-header">
+          <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
+          Markdown
+        </div>
+        <textarea id="markdown" placeholder="# Paste your markdown here...
+
+## Mermaid Diagrams
+
+&#96;&#96;&#96;mermaid
+graph TD
+    A[Start] --> B{Decision}
+    B -->|Yes| C[Do something]
+    B -->|No| D[Do something else]
+    C --> E[End]
+    D --> E
+&#96;&#96;&#96;
+
+## LaTeX Math
+
+Inline math: $E = mc^2$
+
+Block math:
+$$
+\int_{-\infty}^{\infty} e^{-x^2} dx = \sqrt{\pi}
+$$
+
+## Regular Markdown
+
+- **Bold** and *italic* text
+- Lists, tables, code blocks
+- All standard markdown features
+"></textarea>
+      </div>
+
+      <div class="panel">
+        <div class="panel-header">
+          <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
+          Preview
+        </div>
+        <div class="preview" id="preview">
+          <div class="empty-state">
+            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+            <p>Your preview will appear here</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="actions">
+      <button class="btn btn-secondary" id="clearBtn">
+        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+        Clear
+      </button>
+      <button class="btn btn-secondary" id="copyHtmlBtn" disabled>
+        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>
+        Copy HTML
+      </button>
+      <button class="btn btn-primary" id="downloadBtn" disabled>
+        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+        <span id="btnText">Download PDF</span>
+      </button>
+    </div>
+
+    <div class="svg-convert-option">
+      <label class="toggle-label">
+        <input type="checkbox" id="svgToPngToggle">
+        <span class="toggle-switch"></span>
+        <span class="toggle-text">🖼️ Convert SVGs to PNGs (better for Word)</span>
+      </label>
+    </div>
+  </div>
+
+  <div class="toast" id="toast">PDF downloaded successfully!</div>
+
+  <div id="printContainer"></div>
+
+  <div class="drop-overlay" id="dropOverlay">
+    <div class="drop-message">
+      <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/></svg>
+      <p>Drop your Markdown file here</p>
+    </div>
+  </div>
+
+  <!-- Application logic loaded from external JS file -->
+  <script src="app.js"></script>
+</body>
+</html>

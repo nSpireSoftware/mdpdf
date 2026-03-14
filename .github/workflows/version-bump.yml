@@ -1,0 +1,87 @@
+name: Bump SW cache version
+
+# Triggers on every push to main, EXCEPT commits made by this workflow itself.
+on:
+  push:
+    branches: [main]
+
+jobs:
+  bump:
+    # Skip runs triggered by the bot's own version-bump commits to avoid loops.
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: write   # needed to commit the bumped sw.js back to the repo
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 2   # need HEAD and HEAD~1 to detect changed files
+
+      # ------------------------------------------------------------------ #
+      # Detect which src/{appname} directories were touched in this push.   #
+      # Each app in the matrix is checked independently.                    #
+      # ------------------------------------------------------------------ #
+
+      - name: Detect changed apps
+        id: changed
+        run: |
+          # Get the list of files changed in the most recent commit
+          CHANGED=$(git diff --name-only HEAD~1 HEAD)
+          echo "Changed files:"
+          echo "$CHANGED"
+
+          # For each known app, check if any of its files changed
+          # ADD NEW APPS TO THIS LIST as you add them to the repo
+          APPS="mdpdf"
+
+          BUMP_LIST=""
+          for APP in $APPS; do
+            if echo "$CHANGED" | grep -q "^src/${APP}/"; then
+              BUMP_LIST="$BUMP_LIST $APP"
+              echo "→ $APP has changes — will bump"
+            fi
+          done
+
+          # Trim leading space and export
+          BUMP_LIST=$(echo "$BUMP_LIST" | xargs)
+          echo "bump_list=$BUMP_LIST" >> "$GITHUB_OUTPUT"
+
+      - name: Set up Node.js
+        if: steps.changed.outputs.bump_list != ''
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Bump SW versions for changed apps
+        if: steps.changed.outputs.bump_list != ''
+        run: |
+          for APP in ${{ steps.changed.outputs.bump_list }}; do
+            echo "Bumping $APP..."
+            node scripts/bump-version.js "$APP"
+          done
+
+      - name: Commit bumped versions
+        if: steps.changed.outputs.bump_list != ''
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          git add src/*/sw.js
+
+          # Build a commit message listing all bumped apps
+          APPS="${{ steps.changed.outputs.bump_list }}"
+          if [ $(echo "$APPS" | wc -w) -eq 1 ]; then
+            # Single app
+            APP=$(echo "$APPS" | xargs)
+            # Extract new version string from sw.js for the commit message
+            VERSION=$(grep -oP "(?<=CACHE_NAME = ')[^']+" src/$APP/sw.js)
+            git commit -m "chore: bump ${APP} SW cache version to ${VERSION}"
+          else
+            # Multiple apps bumped in one commit
+            git commit -m "chore: bump SW cache versions for ${APPS}"
+          fi
+
+          git push
